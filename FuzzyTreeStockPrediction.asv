@@ -10,6 +10,8 @@ mfLongTermMA = ["Low", "Medium", "High"];
 mfROC = ["Negative", "Neutral", "Positive"];
 mfRSI = ["Oversold", "Neutral", "Overbought"];
 
+mfPriceDiff = ["Decrease", "Increase"];
+
 
 % Calculate peak value for each membership function to fuzzify each input and output variables
 centroidLow = [294.36291288282, 368.043546190034, 530.127173670273];
@@ -39,10 +41,9 @@ rangeRSI = [2.5409, 96.2045];
 rangePriceDiff = [-110.7500, 84.57];
 
 
-
 % Create first FIS.
-fis1 = mamfis('Name','fis1','NumInputs',10 ,'NumOutputs',1, ...
-    'NumInputMFs',3,'NumOutputMFs',2);
+fis1 = mamfis('Name','PriceBasedFeatures','NumInputs', 5, 'NumOutputs',1, ...
+    'NumInputMFs', 3, 'NumOutputMFs',2);
 
 % Configure input and output variables.
 fis1 = updateInput(fis1, 1, 'Low', rangeLow, centroidLow, mfLow);
@@ -50,17 +51,48 @@ fis1 = updateInput(fis1, 2, 'High', rangeHigh, centroidHigh, mfHigh);
 fis1 = updateInput(fis1, 3, 'Open', rangeOpen, centroidOpen, mfOpen);
 fis1 = updateInput(fis1, 4, 'Close', rangeClose, centroidClose, mfClose);
 fis1 = updateInput(fis1, 5, 'AdjClose', rangeAdjClose, centroidAdjClose, mfAdjClose);
-fis1 = updateInput(fis1, 6, 'Volume', rangeVolume, centroidVolume, mfVolume);
-fis1 = updateInput(fis1, 7, 'Long Term MA', rangeLongTermMA, centroidLongTermMA, mfLongTermMA);
-fis1 = updateInput(fis1, 8, 'Short Term MA', rangeShortTermMA, centroidShortTermMA, mfShortTermMA);
-fis1 = updateInput(fis1, 9, 'Rate of Change (ROC)', rangeROC, centroidROC, mfROC);
-fis1 = updateInput(fis1, 10, 'Relative Strength Index (RSI)', rangeRSI, centroidRSI, mfRSI);
+fis1 = updateOutput(fis1, 1, 'Level1PriceDiff', rangePriceDiff, centroidPriceDiff);
 
-fis1 = updateOutput(fis1, 1, 'Next Day Price Diff', rangePriceDiff, centroidPriceDiff);
 
+% Create second FIS
+fis2 = mamfis('Name','TechnicalIndicators','NumInputs', 4, 'NumOutputs',1, ...
+    'NumInputMFs', 3, 'NumOutputMFs',2);
+
+% Connect Fis1 to Fis2
+fis2 = addInput(fis2, rangePriceDiff, 'Name', 'Level1PriceDiff');
+fis2 = addMF(fis2, 'Level1PriceDiff', 'trimf', [centroidPriceDiff(1) - (centroidPriceDiff(2) - centroidPriceDiff(1)), centroidPriceDiff(1), centroidPriceDiff(2)], 'Name', 'Decrease');
+fis2 = addMF(fis2, 'Level1PriceDiff', 'trimf', [centroidPriceDiff(1), centroidPriceDiff(2), centroidPriceDiff(2) + (centroidPriceDiff(2) - centroidPriceDiff(1))], 'Name', 'Increase');
+
+fis2 = updateInput(fis2, 2, 'Volume', rangeVolume, centroidVolume, mfVolume);
+fis2 = updateInput(fis2, 3, 'Rate of Change (ROC)', rangeROC, centroidROC, mfROC);
+fis2 = updateInput(fis2, 4, 'Relative Strength Index (RSI)', rangeRSI, centroidRSI, mfRSI);
+fis2 = updateOutput(fis2, 1, 'Level2PriceDiff', rangePriceDiff, centroidPriceDiff);
+
+
+% Create third FIS
+fis3 = mamfis('Name','MovingAverage','NumInputs', 3, 'NumOutputs',1, ...
+    'NumInputMFs', 3, 'NumOutputMFs',2);
+
+% Connect Fis2 to Fis3
+fis3 = addInput(fis3, rangePriceDiff, 'Name', 'Level2PriceDiff');
+fis3 = addMF(fis3, 'Level2PriceDiff', 'trimf', [centroidPriceDiff(1) - (centroidPriceDiff(2) - centroidPriceDiff(1)), centroidPriceDiff(1), centroidPriceDiff(2)], 'Name', 'Decrease');
+fis3 = addMF(fis3, 'Level2PriceDiff', 'trimf', [centroidPriceDiff(1), centroidPriceDiff(2), centroidPriceDiff(2) + (centroidPriceDiff(2) - centroidPriceDiff(1))], 'Name', 'Increase');
+
+fis3 = updateInput(fis3, 2, 'Long Term MA', rangeLongTermMA, centroidLongTermMA, mfLongTermMA);
+fis3 = updateInput(fis3, 3, 'Short Term MA', rangeShortTermMA, centroidShortTermMA, mfShortTermMA);
+fis3 = updateOutput(fis3, 1, 'PriceDiff', rangePriceDiff, centroidPriceDiff);
+
+
+% Connect the FIS together
+con1 = [fis1.Name + "/" + fis1.Outputs(1).Name ...
+    fis2.Name + "/" + fis2.Inputs(1).Name];
+con2 = [fis2.Name + "/" + fis2.Outputs(1).Name ...
+    fis3.Name + "/" + fis3.Inputs(1).Name];
+
+fisTInit = fistree([fis1 fis2 fis3], [con1; con2]);
 
 figure
-plotfis(fis1)
+plotfis(fisTInit)
 
 
 
@@ -91,7 +123,7 @@ function fis = updateOutput(fis, id, name, range, centroids)
     fis.Outputs(id).Name = name;
     
     % MF names - Increase, Decrease
-    mfPriceDiff = ["Increase", "Decrease"];
+    mfPriceDiff = ["Decrease", "Increase"];
     
     for mfId = 1:length(mfPriceDiff)
         fis.Outputs(id).MembershipFunctions(mfId).Name = mfPriceDiff(mfId);
