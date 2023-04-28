@@ -27,12 +27,12 @@ rs = avg_gain ./ avg_loss;
 rsi = 100 - (100 ./ (1 + rs));
 
 % Calculate price difference (output variable)
-price_difference = diff(close_prices);
+price_difference = close_prices(2:end) - close_prices(1:end-1);
 
 % Combine the features into a new table
-feature_data = data(2:end, :); % Skip the first row due to the diff function
-feature_data.ShortTermMA = short_term_MA(2:end);
-feature_data.LongTermMA = long_term_MA(2:end);
+feature_data = data(1:end-1, :); % Skip the last row due to the next-day price difference
+feature_data.ShortTermMA = short_term_MA(1:end-1);
+feature_data.LongTermMA = long_term_MA(1:end-1);
 feature_data.ROC = roc;
 feature_data.RSI = rsi;
 feature_data.price_diff = price_difference;

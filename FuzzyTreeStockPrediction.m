@@ -55,49 +55,50 @@ fis1 = updateOutput(fis1, 1, 'Level1PriceDiff', rangePriceDiff, centroidPriceDif
 
 
 % Create second FIS
-fis2 = mamfis('Name','TechnicalIndicators','NumInputs', 4, 'NumOutputs',1, ...
+fis2 = mamfis('Name','TechnicalIndicators','NumInputs', 3, 'NumOutputs',1, ...
     'NumInputMFs', 3, 'NumOutputMFs',2);
-
-% Connect Fis1 to Fis2
-fis2.Inputs(1).Name = 'Level1PriceDiff';
-fis2.Inputs(1).Range = rangePriceDiff;
-fis2 = addMF(fis2, 'Level1PriceDiff', 'trimf', [centroidPriceDiff(1) - (centroidPriceDiff(2) - centroidPriceDiff(1)), centroidPriceDiff(1), centroidPriceDiff(2)], 'Name', 'Decrease');
-fis2 = addMF(fis2, 'Level1PriceDiff', 'trimf', [centroidPriceDiff(1), centroidPriceDiff(2), centroidPriceDiff(2) + (centroidPriceDiff(2) - centroidPriceDiff(1))], 'Name', 'Increase');
-
-fis2 = updateInput(fis2, 2, 'Volume', rangeVolume, centroidVolume, mfVolume);
-fis2 = updateInput(fis2, 3, 'Rate of Change (ROC)', rangeROC, centroidROC, mfROC);
-fis2 = updateInput(fis2, 4, 'Relative Strength Index (RSI)', rangeRSI, centroidRSI, mfRSI);
+fis2 = updateInput(fis2, 1, 'Volume', rangeVolume, centroidVolume, mfVolume);
+fis2 = updateInput(fis2, 2, 'Rate of Change (ROC)', rangeROC, centroidROC, mfROC);
+fis2 = updateInput(fis2, 3, 'Relative Strength Index (RSI)', rangeRSI, centroidRSI, mfRSI);
 fis2 = updateOutput(fis2, 1, 'Level2PriceDiff', rangePriceDiff, centroidPriceDiff);
 
 
 % Create third FIS
-fis3 = mamfis('Name','MovingAverage','NumInputs', 3, 'NumOutputs',1, ...
+fis3 = mamfis('Name','MovingAverage','NumInputs', 2, 'NumOutputs',1, ...
     'NumInputMFs', 3, 'NumOutputMFs',2);
+fis3 = updateInput(fis3, 1, 'Long Term MA', rangeLongTermMA, centroidLongTermMA, mfLongTermMA);
+fis3 = updateInput(fis3, 2, 'Short Term MA', rangeShortTermMA, centroidShortTermMA, mfShortTermMA);
+fis3 = updateOutput(fis3, 1, 'Level3PriceDiff', rangePriceDiff, centroidPriceDiff);
 
-% Connect Fis2 to Fis3
-fis3.Inputs(1).Name = 'Level2PriceDiff';
-fis3.Inputs(1).Range = rangePriceDiff;
-fis3 = addMF(fis3, 'Level2PriceDiff', 'trimf', [centroidPriceDiff(1) - (centroidPriceDiff(2) - centroidPriceDiff(1)), centroidPriceDiff(1), centroidPriceDiff(2)], 'Name', 'Decrease');
-fis3 = addMF(fis3, 'Level2PriceDiff', 'trimf', [centroidPriceDiff(1), centroidPriceDiff(2), centroidPriceDiff(2) + (centroidPriceDiff(2) - centroidPriceDiff(1))], 'Name', 'Increase');
 
-fis3 = updateInput(fis3, 2, 'Long Term MA', rangeLongTermMA, centroidLongTermMA, mfLongTermMA);
-fis3 = updateInput(fis3, 3, 'Short Term MA', rangeShortTermMA, centroidShortTermMA, mfShortTermMA);
-fis3 = updateOutput(fis3, 1, 'PriceDiff', rangePriceDiff, centroidPriceDiff);
+% Create 4th FIS
+fis4 = mamfis('Name','fis4','NumInputs', 2, 'NumOutputs',1, ...
+    'NumInputMFs', 2, 'NumOutputMFs',2);
+
+
+% Create 5th FIS
+fis5 = fis4;
+fis5.Name = 'fis5';
+fis5.Outputs(1).Name = "price_diff";
 
 
 % Connect the FIS together
-con1 = [fis1.Name + "/" + fis1.Outputs(1).Name ...
-    fis2.Name + "/" + fis2.Inputs(1).Name];
-con2 = [fis2.Name + "/" + fis2.Outputs(1).Name ...
-    fis3.Name + "/" + fis3.Inputs(1).Name];
+con1 = [ ...
+    "PriceBasedFeatures/Level1PriceDiff" "fis4/input1"; ...
+    "TechnicalIndicators/Level2PriceDiff" "fis4/input2"; ...
+    "MovingAverage/Level3PriceDiff" "fis5/input2"; ...
+    "fis4/output1" "fis5/input1"
+];
+fisTInit = fistree([fis1 fis2 fis3 fis4 fis5], con1);
 
-fisTInit = fistree([fis1 fis2 fis3], [con1; con2]);
-
+figure
+plotfis(fisTInit)
 
 [in,out,rule] = getTunableSettings(fisTInit);
 for rId = 1:numel(rule)
     rule(rId).Antecedent.Free = false;    
 end
+
 
 options = tunefisOptions;
 options.MethodOptions.MaxGenerations = 3;
@@ -109,20 +110,46 @@ data = readtable('preprocessed_data.csv');
 
 % Perform a random train-test split
 rng('default'); % Set random seed for reproducibility
-cv = cvpartition(height(data), 'HoldOut', 0.2); % 80% training data, 20% testing data
 
-% Extract the train and test data
-trainData = data(cv.training, :);
-testData = data(cv.test, :);
+% Original Column Order
+% 1. Open
+% 2. High
+% 3. Low
+% 4. Close
+% 5. AdjClose
+% 6. Volume
+% 7. ShortTermMA
+% 8. LongTermMA
+% 9. ROC
+% 10. RSI
 
-% Extract the input (X) and target (price_diff) data
-X_train = trainData{:, 2:end-1}; % All columns except the first and last (price_diff)
-y_train = trainData{:, 'price_diff'}; % Target: price_diff column
-X_test = testData{:, 2:end-1}; % All columns except the first and last (price_diff)
-y_test = testData{:, 'price_diff'}; % Target: price_diff column
+X = data(:,2:11);
+Y = data(:,12);
+inputOrder = [3 2 1 4 5 6 9 10 8 7];
+orderedData = X{:, inputOrder};
+y_train = data{:,12};
 
-[trainedFis, trainError] = tunefis(fisTInit, rule, X_train, y_train, options);
-disp(['Optimal RMSE: ', num2str(trainError)]);
+% cv = cvpartition(height(orderedData), 'HoldOut', 0.2); % 80% training data, 20% testing data
+% 
+% % Extract the train and test data
+% trainData = orderedData(cv.training, :);
+% testData = orderedData(cv.test, :);
+% 
+% % Extract the input (X) and target (price_diff) data
+% X_train = trainData{:, 2:end-1}; % All columns except the first and last (price_diff)
+% y_train = trainData{:, 'price_diff'}; % Target: price_diff column
+% X_test = testData{:, 2:end-1}; % All columns except the first and last (price_diff)
+% y_test = testData{:, 'price_diff'}; % Target: price_diff column
+
+trainedFis = tunefis(fisTInit, rule, orderedData, y_train, options);
+
+
+% Evaluate the FIS
+outputTuned = evalfis(trainedFis, orderedData);
+plot([y_train, outputTuned])
+legend("Expected Output","Tuned Output","Location","southeast")
+xlabel("Data Index")
+ylabel("Price Difference")
 
 
 
