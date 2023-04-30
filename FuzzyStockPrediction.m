@@ -41,7 +41,7 @@ rangePriceDiff = [-110.7500, 84.57];
 
 
 % Create first FIS.
-fis1 = mamfis('Name','fis1','NumInputs',10 ,'NumOutputs',1, ...
+fis1 = mamfis('Name','fis1','NumInputs',9 ,'NumOutputs',1, ...
     'NumInputMFs',3,'NumOutputMFs',2);
 
 % Configure input and output variables.
@@ -49,12 +49,12 @@ fis1 = updateInput(fis1, 1, 'Low', rangeLow, centroidLow, mfLow);
 fis1 = updateInput(fis1, 2, 'High', rangeHigh, centroidHigh, mfHigh);
 fis1 = updateInput(fis1, 3, 'Open', rangeOpen, centroidOpen, mfOpen);
 fis1 = updateInput(fis1, 4, 'Close', rangeClose, centroidClose, mfClose);
-fis1 = updateInput(fis1, 5, 'AdjClose', rangeAdjClose, centroidAdjClose, mfAdjClose);
-fis1 = updateInput(fis1, 6, 'Volume', rangeVolume, centroidVolume, mfVolume);
-fis1 = updateInput(fis1, 7, 'Long Term MA', rangeLongTermMA, centroidLongTermMA, mfLongTermMA);
-fis1 = updateInput(fis1, 8, 'Short Term MA', rangeShortTermMA, centroidShortTermMA, mfShortTermMA);
-fis1 = updateInput(fis1, 9, 'Rate of Change (ROC)', rangeROC, centroidROC, mfROC);
-fis1 = updateInput(fis1, 10, 'Relative Strength Index (RSI)', rangeRSI, centroidRSI, mfRSI);
+% fis1 = updateInput(fis1, 5, 'AdjClose', rangeAdjClose, centroidAdjClose, mfAdjClose);
+fis1 = updateInput(fis1, 5, 'Volume', rangeVolume, centroidVolume, mfVolume);
+fis1 = updateInput(fis1, 6, 'Long Term MA', rangeLongTermMA, centroidLongTermMA, mfLongTermMA);
+fis1 = updateInput(fis1, 7, 'Short Term MA', rangeShortTermMA, centroidShortTermMA, mfShortTermMA);
+fis1 = updateInput(fis1, 8, 'Rate of Change (ROC)', rangeROC, centroidROC, mfROC);
+fis1 = updateInput(fis1, 9, 'Relative Strength Index (RSI)', rangeRSI, centroidRSI, mfRSI);
 
 fis1 = updateOutput(fis1, 1, 'Next Day Price Diff', rangePriceDiff, centroidPriceDiff);
 

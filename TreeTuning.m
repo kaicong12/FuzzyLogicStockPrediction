@@ -75,19 +75,23 @@ fisTInit = fistree([fis1 fis2 fis3 fis4 fis5], con1);
 % 1. Learn the rule base while keeping the input and output MF parameters constant.
 % 2. Tune the parameters of the input/output MFs and rules.
 
-options = tunefisOptions('OptimizationType','learning');
+% options = tunefisOptions('OptimizationType','learning');
+options = tunefisOptions('Method','particleswarm',...
+    'OptimizationType','learning');
+options.MethodOptions.MaxIterations = 20;
+rng('default');
 trainedFis = tunefis(fisTInit, [], orderedData, Y, options);
 
 
 % After learning the new rules, tune the parameters of the learned rules
-[in,out,rule] = getTunableSettings(fisTout1);
-options.OptimizationType = 'tuning';
-trainedFis2 = tunefis(trainedFis, rule, orderedData, Y, options);
+% [in,out,rule] = getTunableSettings(fisTout1);
+% options.OptimizationType = 'tuning';
+% trainedFis2 = tunefis(trainedFis, rule, orderedData, Y, options);
 
 
 % Evaluate the FIS
-outputTuned = evalfis(trainedFis2, orderedData);
-plot([y_train, outputTuned])
+outputTuned = evalfis(trainedFis, orderedData);
+plot([Y, outputTuned])
 legend("Expected Output","Tuned Output","Location","southeast")
 xlabel("Data Index")
 ylabel("Price Difference")

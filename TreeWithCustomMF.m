@@ -1,3 +1,26 @@
+% Get Data to tune the system
+data = readtable('preprocessed_data.csv');
+data = table2array(data(:, 2:end));
+dataRange = [min(data)' max(data)'];
+
+% Original Column Order
+% 1. Open
+% 2. High
+% 3. Low
+% 4. Close
+% 5. AdjClose
+% 6. Volume
+% 7. ShortTermMA
+% 8. LongTermMA
+% 9. ROC
+% 10. RSI
+
+X = data(:,1:10);
+Y = data(:,11);
+inputOrder = [3 2 1 4 5 6 9 10 8 7];
+orderedData = X(:, inputOrder);
+
+
 % Define Membership function names for the input variables
 mfLow = ["Low", "Medium", "High"];
 mfHigh = ["Low", "Medium", "High"];
@@ -27,53 +50,36 @@ centroidRSI = [33.0083198478724, 52.3009593447125, 71.7217757978516];
 centroidPriceDiff = [-6.8757, 7.2477];
 
 
-% Calculate the range of values which each feature spans across
-rangeOpen = [233.9200, 692.350];
-rangeHigh = [250.650, 700.9900];
-rangeLow = [231.230, 686.090];
-rangeClose = [233.880, 691.690];
-rangeAdjClose = [233.880, 691.690];
-rangeVolume = [1144000, 58904300];
-rangeShortTermMA = [249.118, 684.610];
-rangeLongTermMA = [263.970, 672.127];
-rangeROC = [-21.7905, 16.8543];
-rangeRSI = [2.5409, 96.2045];
-rangePriceDiff = [-110.7500, 84.57];
-
-
 % Create first FIS.
-fis1 = mamfis('Name','PriceBasedFeatures','NumInputs', 5, 'NumOutputs',1, ...
-    'NumInputMFs', 3, 'NumOutputMFs',2);
-
-% Configure input and output variables.
-fis1 = updateInput(fis1, 1, 'Low', rangeLow, centroidLow, mfLow);
-fis1 = updateInput(fis1, 2, 'High', rangeHigh, centroidHigh, mfHigh);
-fis1 = updateInput(fis1, 3, 'Open', rangeOpen, centroidOpen, mfOpen);
-fis1 = updateInput(fis1, 4, 'Close', rangeClose, centroidClose, mfClose);
-fis1 = updateInput(fis1, 5, 'AdjClose', rangeAdjClose, centroidAdjClose, mfAdjClose);
-fis1 = updateOutput(fis1, 1, 'Level1PriceDiff', rangePriceDiff, centroidPriceDiff);
+fis1 = mamfis('Name','PriceBasedFeatures');
+fis1 = updateInput(fis1, 1, 'Low', dataRange(3,:), centroidLow, mfLow);
+fis1 = updateInput(fis1, 2, 'High', dataRange(2,:), centroidHigh, mfHigh);
+fis1 = updateInput(fis1, 3, 'Open', dataRange(1,:), centroidOpen, mfOpen);
+fis1 = updateInput(fis1, 4, 'Close', dataRange(4,:), centroidClose, mfClose);
+fis1 = updateInput(fis1, 5, 'AdjClose', dataRange(5,:), centroidAdjClose, mfAdjClose);
+fis1 = updateOutput(fis1, 1, 'Level1PriceDiff', dataRange(11,:), centroidPriceDiff);
 
 
 % Create second FIS
-fis2 = mamfis('Name','TechnicalIndicators','NumInputs', 3, 'NumOutputs',1, ...
-    'NumInputMFs', 3, 'NumOutputMFs',2);
-fis2 = updateInput(fis2, 1, 'Volume', rangeVolume, centroidVolume, mfVolume);
-fis2 = updateInput(fis2, 2, 'Rate of Change (ROC)', rangeROC, centroidROC, mfROC);
-fis2 = updateInput(fis2, 3, 'Relative Strength Index (RSI)', rangeRSI, centroidRSI, mfRSI);
-fis2 = updateOutput(fis2, 1, 'Level2PriceDiff', rangePriceDiff, centroidPriceDiff);
+fis2 = mamfis('Name','TechnicalIndicators');
+fis2 = updateInput(fis2, 1, 'Volume', dataRange(6,:), centroidVolume, mfVolume);
+fis2 = updateInput(fis2, 2, 'Rate of Change (ROC)', dataRange(9,:), centroidROC, mfROC);
+fis2 = updateInput(fis2, 3, 'Relative Strength Index (RSI)', dataRange(10,:), centroidRSI, mfRSI);
+fis2 = updateOutput(fis2, 1, 'Level2PriceDiff', dataRange(11,:), centroidPriceDiff);
 
 
 % Create third FIS
-fis3 = mamfis('Name','MovingAverage','NumInputs', 2, 'NumOutputs',1, ...
-    'NumInputMFs', 3, 'NumOutputMFs',2);
-fis3 = updateInput(fis3, 1, 'Long Term MA', rangeLongTermMA, centroidLongTermMA, mfLongTermMA);
-fis3 = updateInput(fis3, 2, 'Short Term MA', rangeShortTermMA, centroidShortTermMA, mfShortTermMA);
-fis3 = updateOutput(fis3, 1, 'Level3PriceDiff', rangePriceDiff, centroidPriceDiff);
+fis3 = mamfis('Name','MovingAverage');
+fis3 = updateInput(fis3, 1, 'Long Term MA', dataRange(8,:), centroidLongTermMA, mfLongTermMA);
+fis3 = updateInput(fis3, 2, 'Short Term MA', dataRange(7,:), centroidShortTermMA, mfShortTermMA);
+fis3 = updateOutput(fis3, 1, 'Level3PriceDiff', dataRange(11,:), centroidPriceDiff);
 
 
 % Create 4th FIS
-fis4 = mamfis('Name','fis4','NumInputs', 2, 'NumOutputs',1, ...
-    'NumInputMFs', 2, 'NumOutputMFs',2);
+fis4 = mamfis('Name', 'fis4');
+fis4 = addInput(fis4, dataRange(11,:),'NumMFs',2);
+fis4 = addInput(fis4, dataRange(11,:),'NumMFs',2);
+fis4 = addOutput(fis4, dataRange(11,:),'NumMFs',2);
 
 
 % Create 5th FIS
@@ -91,66 +97,26 @@ con1 = [ ...
 ];
 fisTInit = fistree([fis1 fis2 fis3 fis4 fis5], con1);
 
-figure
-plotfis(fisTInit)
+% figure
+% plot(fisTInit)
 
-[in,out,rule] = getTunableSettings(fisTInit);
-for rId = 1:numel(rule)
-    rule(rId).Antecedent.Free = false;    
-end
-
-
-options = tunefisOptions;
-options.MethodOptions.MaxGenerations = 3;
-options.MethodOptions.PopulationSize = 100;
+options = tunefisOptions('OptimizationType','learning');
+rng('default');
+trainedFis = tunefis(fisTInit, [], orderedData, Y, options);
 
 
-% Get Data to tune the system
-data = readtable('preprocessed_data.csv');
-
-% Perform a random train-test split
-rng('default'); % Set random seed for reproducibility
-
-% Original Column Order
-% 1. Open
-% 2. High
-% 3. Low
-% 4. Close
-% 5. AdjClose
-% 6. Volume
-% 7. ShortTermMA
-% 8. LongTermMA
-% 9. ROC
-% 10. RSI
-
-X = data(:,2:11);
-Y = data(:,12);
-inputOrder = [3 2 1 4 5 6 9 10 8 7];
-orderedData = X{:, inputOrder};
-y_train = data{:,12};
-
-% cv = cvpartition(height(orderedData), 'HoldOut', 0.2); % 80% training data, 20% testing data
-% 
-% % Extract the train and test data
-% trainData = orderedData(cv.training, :);
-% testData = orderedData(cv.test, :);
-% 
-% % Extract the input (X) and target (price_diff) data
-% X_train = trainData{:, 2:end-1}; % All columns except the first and last (price_diff)
-% y_train = trainData{:, 'price_diff'}; % Target: price_diff column
-% X_test = testData{:, 2:end-1}; % All columns except the first and last (price_diff)
-% y_test = testData{:, 'price_diff'}; % Target: price_diff column
-
-trainedFis = tunefis(fisTInit, rule, orderedData, y_train, options);
+% After learning the new rules, tune the parameters of the learned rules
+% [in,out,rule] = getTunableSettings(fisTout1);
+% options.OptimizationType = 'tuning';
+% trainedFis2 = tunefis(trainedFis, rule, orderedData, Y, options);
 
 
 % Evaluate the FIS
 outputTuned = evalfis(trainedFis, orderedData);
-plot([y_train, outputTuned])
+plot([Y, outputTuned])
 legend("Expected Output","Tuned Output","Location","southeast")
 xlabel("Data Index")
 ylabel("Price Difference")
-
 
 
 function fis = updateInput(fis, id, name, range, centroids, mfNames)
